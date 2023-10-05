@@ -1,0 +1,10 @@
+{
+    "name": "admin/a.o.b.e.m-main",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "require": {}
+}
