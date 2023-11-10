@@ -1,0 +1,537 @@
+Paciente
+Cadastro: MODEL
+// models/userModel.js
+
+const db = require("./db/conn"); // Importe o módulo de conexão com o banco de dados
+
+class UserModel {
+  static async createUser({ nome, email, telefone, dataNascimento, senha }) {
+    try {
+      const senhaCriptografada = await bcrypt.hash(senha, salt);
+      const usuario = {
+        nome,
+        email,
+        telefone,
+        dataNascimento,
+        senha: senhaCriptografada,
+      };
+      const result = await db.usuarios.insertOne(usuario);
+      return result;
+    } catch (error) {
+      throw new Error("Erro ao criar usuário no banco de dados");
+    }
+  }
+}
+
+module.exports = UserModel;
+
+Controller:
+1
+// models/userModel.js
+
+const db = require("./db/conn"); // Importe o módulo de conexão com o banco de dados
+
+class UserModel {
+  static async createUser({ nome, email, telefone, dataNascimento, senha }) {
+    try {
+      const senhaCriptografada = await bcrypt.hash(senha, salt);
+      const usuario = {
+        nome,
+        email,
+        telefone,
+        dataNascimento,
+        senha: senhaCriptografada,
+      };
+      const result = await db.usuarios.insertOne(usuario);
+      return result;
+    } catch (error) {
+      throw new Error("Erro ao criar usuário no banco de dados");
+    }
+  }
+}
+
+module.exports = UserModel;
+
+2(Foi usada na aplicação)
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const UserModel = require("../models/userModel"); // Importe o modelo de usuário
+const UserRegistrationView = require("../views/userRegistrationView"); // Importe a visualização de registro de usuário
+
+const app = express();
+
+// Configurações do CORS
+app.use(cors({
+  origin: "*",
+  allowedHeaders: ["Authorization", "Content-Type"],
+  allowedMethods: ["GET", "POST", "PUT", "DELETE"],
+}));
+
+// Configurações do BodyParser
+app.use(bodyParser.json());
+
+// Configurações da criptografia de senha
+const salt = bcrypt.genSaltSync(10);
+
+// Rota para registro de usuário
+app.post("/api/usuarios/registro", async (req, res) => {
+  const { nome, email, telefone, dataNascimento, senha } = req.body;
+
+  if (!nome || !email || !telefone || !dataNascimento || !senha) {
+    return UserRegistrationView.renderErrorResponse(res, 400, "Dados inválidos");
+  }
+
+  try {
+    // Crie o usuário usando o modelo
+    const result = await UserModel.createUser({ nome, email, telefone, dataNascimento, senha });
+
+    if (result) {
+      const token = jwt.sign({ id: result.insertedId }, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+
+      // Responda com sucesso usando a visualização
+      UserRegistrationView.renderRegistrationSuccess(res, token);
+    }
+  } catch (error) {
+    console.error(error);
+    return UserRegistrationView.renderErrorResponse(res, 500, "Erro no servidor");
+  }
+});
+
+// Inicie o servidor
+app.listen(3000, () => {
+  console.log("Servidor rodando na porta 3000");
+});
+
+view: 
+// views/userRegistrationView.js
+
+function renderRegistrationSuccess(res, token) {
+  const html = `
+    <html>
+      <body>
+        <h1>Registro de Usuário Bem-Sucedido</h1>
+        <p>Você foi registrado com sucesso!</p>
+        <p>Seu token JWT é: ${token}</p>
+      </body>
+    </html>
+  `;
+
+  res.status(201).send(html);
+}
+
+module.exports = {
+  renderRegistrationSuccess,
+};
+
+Login:
+Model:
+// models/userModel.js
+
+const db = require("./database.js");
+
+class UserModel {
+  static async findUserByEmail(email) {
+    try {
+      const usuario = await db.usuarios.findOne({ email });
+      return usuario;
+    } catch (error) {
+      throw new Error("Erro ao encontrar o usuário no banco de dados");
+    }
+  }
+}
+
+module.exports = UserModel;
+
+Controller:
+1
+// controllers/userController.js
+
+const UserModel = require("../models/userModel");
+const UserLoginView = require("../views/userLoginView");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+app.post("/api/usuarios/login", async (req, res) => {
+  const { email, senha } = req.body;
+
+  if (!email || !senha) {
+    return UserLoginView.renderError(res, 400, "Dados inválidos");
+  }
+
+  try {
+    const usuario = await UserModel.findUserByEmail(email);
+
+    if (!usuario) {
+      return UserLoginView.renderError(res, 401, "Usuário não encontrado");
+    }
+
+    const senhaCriptografadaBanco = usuario.senha;
+    const comparacao = bcrypt.compareSync(senha, senhaCriptografadaBanco);
+
+    if (!comparacao) {
+      return UserLoginView.renderError(res, 401, "Senha incorreta");
+    }
+
+    const token = jwt.sign({ id: usuario._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    UserLoginView.renderTokenResponse(res, token);
+  } catch (error) {
+    console.error(error);
+    return UserLoginView.renderError(res, 500, "Erro no servidor");
+  }
+});
+
+2(codigo usado)
+const UserModel = require("../models/loginUsers_Model.js"); // Importe o modelo de usuário
+const UserLoginView = require("../views/loginUsers_View"); // Importe a visualização de login de usuário
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const express = require("express");
+const app = express();
+
+// Configurações do CORS
+app.use(cors({
+  origin: "*",
+  allowedHeaders: ["Authorization", "Content-Type"],
+  allowedMethods: ["GET", "POST", "PUT", "DELETE"],
+}));
+
+// Configurações do BodyParser
+app.use(bodyParser.json());
+
+app.post("/api/usuarios/login", async (req, res) => {
+  const { email, senha } = req.body;
+
+  if (!email || !senha) {
+    return UserLoginView.renderError(res, 400, "Dados inválidos");
+  }
+
+  try {
+    // Encontre o usuário usando o modelo
+    const usuario = await UserModel.findUserByEmail(email);
+
+    if (!usuario) {
+      return UserLoginView.renderError(res, 401, "Usuário não encontrado");
+    }
+
+    const senhaCriptografadaBanco = usuario.senha;
+    const comparacao = bcrypt.compareSync(senha, senhaCriptografadaBanco);
+
+    if (!comparacao) {
+      return UserLoginView.renderError(res, 401, "Senha incorreta");
+    }
+
+    const token = jwt.sign({ id: usuario._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    // Responda com sucesso usando a visualização
+    UserLoginView.renderTokenResponse(res, token);
+  } catch (error) {
+    console.error(error);
+    return UserLoginView.renderError(res, 500, "Erro no servidor");
+  }
+});
+
+// Inicie o servidor
+app.listen(3000, () => {
+  console.log("Servidor rodando na porta 3000");
+});
+
+View:
+// views/userLoginView.js
+
+class UserLoginView {
+  static renderTokenResponse(res, token) {
+    res.status(200).json({
+      token,
+    });
+  }
+
+  static renderError(res, status, errorMessage) {
+    res.status(status).json({
+      error: errorMessage,
+    });
+  }
+}
+
+module.exports = UserLoginView;
+
+
+
+
+Psicologo 
+Cadastro:
+Model:
+// models/psicologoModel.js
+
+const db = require("./database");
+
+class PsicologoModel {
+  static async createPsicologo(crp, nome, email, telefone, dataNascimento, senha) {
+    try {
+      const senhaCriptografada = bcrypt.hashSync(senha, salt);
+      const psicologo = {
+        crp,
+        nome,
+        email,
+        telefone,
+        dataNascimento,
+        senha: senhaCriptografada,
+      };
+      const result = await db.psicologo.insertOne(psicologo);
+      return result;
+    } catch (error) {
+      throw new Error("Erro ao criar psicólogo no banco de dados");
+    }
+  }
+}
+
+module.exports = PsicologoModel;
+
+Controller:
+const express = require("express");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const PsicologoModel = require("../models/cadPsico_Model"); // Importe o modelo
+const PsicologoView = require("../views/cadPsico_View"); // Importe a visualização
+
+const app = express();
+
+// Configurações do CORS
+app.use(cors({
+  origin: "*",
+  allowedHeaders: ["Authorization", "Content-Type"],
+  allowedMethods: ["GET", "POST", "PUT", "DELETE"],
+}));
+
+// Configurações do BodyParser
+app.use(bodyParser.json());
+
+// Configurações da criptografia de senha
+const salt = bcrypt.genSaltSync(10);
+
+// Rota para cadastro de psicólogos
+app.post("/api/psicologo", async (req, res) => {
+  const { crp, nome, email, telefone, dataNascimento, senha } = req.body;
+
+  if (!crp || !nome || !email || !telefone || !dataNascimento || !senha) {
+    return PsicologoView.renderErrorResponse(res, 400, "Dados inválidos");
+  }
+
+  try {
+    const senhaCriptografada = bcrypt.hashSync(senha, salt);
+    const psicologo = {
+      crp,
+      nome,
+      email,
+      telefone,
+      dataNascimento,
+      senha: senhaCriptografada,
+    };
+
+    // Insere o psicólogo no banco de dados usando o modelo
+    const result = await PsicologoModel.createPsicologo(psicologo);
+
+    if (result) {
+      const token = jwt.sign({ id: result.insertedId }, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+
+      PsicologoView.renderSuccessResponse(res, token);
+    }
+  } catch (error) {
+    console.error(error);
+    return PsicologoView.renderErrorResponse(res, 500, "Erro no servidor");
+  }
+});
+
+// Inicia o servidor
+app.listen(3000, () => {
+  console.log("Servidor rodando na porta 3000");
+});
+
+View:
+// views/psicologoView.js
+
+class PsicologoView {
+  static renderSuccessResponse(res, token) {
+    res.status(201).json({
+      token,
+    });
+  }
+
+  static renderErrorResponse(res, status, errorMessage) {
+    res.status(status).json({
+      error: errorMessage,
+    });
+  }
+}
+
+module.exports = PsicologoView;
+
+Login:
+Model:
+const db = require('./database'); // Importe o módulo de conexão com o banco de dados
+
+class UserModel {
+  static async findUserByEmail(email) {
+    try {
+      const usuario = await db.usuarios.findOne({ email });
+      return usuario;
+    } catch (error) {
+      throw new Error('Erro ao encontrar o usuário no banco de dados');
+    }
+  }
+}
+
+module.exports = UserModel;
+
+Controller:
+1(usado na aplicação)
+const app = require('./import2.js');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const UserModel = require('./userModel'); // Importe o modelo do usuário
+const UserLoginView = require('./userLoginView'); // Importe a visualização de login do usuário
+
+app.listen(3001, () => {
+  console.log('Servidor está ouvindo na porta 3001');
+});
+
+// Rota para o login do usuário
+app.post('/api/usuarios/login', async (req, res) => {
+  const { email, senha } = req.body;
+
+  // Valida os dados do usuário
+  if (!email || !senha) {
+    return res.status(400).json({
+      erro: 'Dados inválidos',
+    });
+  }
+
+  try {
+    const usuario = await UserModel.findUserByEmail(email);
+
+    if (!usuario) {
+      return UserLoginView.renderErrorResponse(res, 401, 'Usuário não encontrado');
+    }
+
+    const senhaCriptografadaBanco = usuario.senha;
+    const comparacao = bcrypt.compareSync(senha, senhaCriptografadaBanco);
+
+    if (!comparacao) {
+      return UserLoginView.renderErrorResponse(res, 401, 'Senha incorreta');
+    }
+
+    // Gera um token JWT
+    const token = jwt.sign({ id: usuario._id }, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    });
+
+    UserLoginView.renderSuccessResponse(res, token, usuario);
+  } catch (error) {
+    console.error(error);
+    return UserLoginView.renderErrorResponse(res, 500, 'Erro no servidor');
+  }
+});
+
+// Inicia o servidor
+app.listen(3000, () => {
+  console.log('Servidor rodando na porta 3000');
+});
+
+2
+const express = require('express');
+const app = express();
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+app.listen(3001, () => {
+  console.log('Servidor está ouvindo na porta 3001');
+});
+
+// Rota para o login do usuário
+app.post('/api/usuarios/login', async (req, res) => {
+  const { email, senha } = req.body;
+
+  // Valida os dados do usuário
+  if (!email || !senha) {
+    return res.status(400).json({
+      erro: 'Dados inválidos',
+    });
+  }
+
+  const UserModel = require('./userModel'); // Importe o modelo do usuário
+  const UserLoginView = require('./userLoginView'); // Importe a visualização de login do usuário
+
+  try {
+    const usuario = await UserModel.findUserByEmail(email);
+
+    if (!usuario) {
+      return UserLoginView.renderErrorResponse(res, 401, 'Usuário não encontrado');
+    }
+
+    const senhaCriptografadaBanco = usuario.senha;
+    const comparacao = bcrypt.compareSync(senha, senhaCriptografadaBanco);
+
+    if (!comparacao) {
+      return UserLoginView.renderErrorResponse(res, 401, 'Senha incorreta');
+    }
+
+    // Gera um token JWT
+    const token = jwt.sign({ id: usuario._id }, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    });
+
+    UserLoginView.renderSuccessResponse(res, token, usuario);
+  } catch (error) {
+    console.error(error);
+    return UserLoginView.renderErrorResponse(res, 500, 'Erro no servidor');
+  }
+});
+
+// Inicia o servidor
+app.listen(3000, () => {
+  console.log('Servidor rodando na porta 3000');
+});
+
+View:
+class UserLoginView {
+  static renderSuccessResponse(res, token, user) {
+    res.status(200).json({
+      token,
+      nome: user.nome,
+      email: user.email,
+      telefone: user.telefone,
+      dataNascimento: user.dataNascimento,
+      CRP: user.CRP,
+    });
+  }
+
+  static renderErrorResponse(res, status, errorMessage) {
+    res.status(status).json({
+      error: errorMessage,
+    });
+  }
+}
+
+module.exports = UserLoginView;
+
+
+Observações: No controller/Pacient tem dois logins, o feito antes e o novo, deixei pra vcs decirem, prefiri o novo
+Provavelmente na maioria dos controller vão ter q instalar os modulos externos pq eu n fiz isso
+Tem q fazer as ligações com o Banco de Dados pq eu n fiz
+
+
